@@ -1,4 +1,4 @@
-import { fetchText, type TextFetcher } from "./http";
+import { fetchHead, fetchText, type HeadFetcher, type TextFetcher } from "./http";
 import { parseOg } from "./og";
 import type { ParsedProduct } from "./types";
 
@@ -28,17 +28,39 @@ const BASKET_RANGES: Array<[number, number]> = [
   [2621, 16], [2837, 17], [3053, 18], [3269, 19], [3485, 20],
 ];
 
-export function basketHost(nm: number): string {
-  const vol = Math.floor(nm / 1e5);
+// Beyond the table, baskets grow roughly linearly. Anchor observed 2026-09-15: vol 11675 -> basket 43.
+const LAST_TABLE_VOL = 3485;
+const LAST_TABLE_BASKET = 20;
+const VOLS_PER_BASKET = (11675 - LAST_TABLE_VOL) / (43 - LAST_TABLE_BASKET);
+
+/** Best-guess basket number for a vol; verified against the CDN by resolveWbImage. */
+export function guessBasket(vol: number): number {
   const hit = BASKET_RANGES.find(([max]) => vol <= max);
-  const n = hit ? hit[1] : 21;
-  return `basket-${String(n).padStart(2, "0")}.wbbasket.ru`;
+  if (hit) return hit[1];
+  return LAST_TABLE_BASKET + Math.ceil((vol - LAST_TABLE_VOL) / VOLS_PER_BASKET);
 }
 
-export function wbImageUrl(nm: number): string {
+export function basketHost(nm: number, basket: number = guessBasket(Math.floor(nm / 1e5))): string {
+  return `basket-${String(basket).padStart(2, "0")}.wbbasket.ru`;
+}
+
+export function wbImageUrl(nm: number, basket?: number): string {
   const vol = Math.floor(nm / 1e5);
   const part = Math.floor(nm / 1e3);
-  return `https://${basketHost(nm)}/vol${vol}/part${part}/${nm}/images/big/1.webp`;
+  return `https://${basketHost(nm, basket)}/vol${vol}/part${part}/${nm}/images/big/1.webp`;
+}
+
+/**
+ * Finds the image URL that actually exists on the CDN: tries the guessed basket first,
+ * then its neighbours in parallel. Returns null when nothing answers 200.
+ */
+export async function resolveWbImage(nm: number, head: HeadFetcher = fetchHead): Promise<string | null> {
+  const guess = guessBasket(Math.floor(nm / 1e5));
+  const first = wbImageUrl(nm, guess);
+  if ((await head(first)) === 200) return first;
+  const candidates = [-1, 1, -2, 2, -3, 3].map((d) => guess + d).filter((b) => b >= 1 && b <= 99);
+  const results = await Promise.all(candidates.map(async (b) => ((await head(wbImageUrl(nm, b))) === 200 ? wbImageUrl(nm, b) : null)));
+  return results.find((r) => r) ?? null;
 }
 
 export function wbCanonicalUrl(nm: number): string {
@@ -112,25 +134,28 @@ function safeJson(body: string): unknown {
 
 const CARD_QUERY = "appType=1&curr=rub&dest=-1257786&spp=30";
 
-export function wbCardUrl(nm: number, version: "v1" | "v2"): string {
+export type WbCardVersion = "v4" | "v2" | "v1";
+
+export function wbCardUrl(nm: number, version: WbCardVersion): string {
   return `https://card.wb.ru/cards/${version}/detail?${CARD_QUERY}&nm=${nm}`;
 }
 
 /**
- * Wildberries adapter: card API v2, then v1, then the HTML page's Open Graph tags.
- * WB endpoints may return an empty body or block foreign IPs; all of that yields null.
+ * Wildberries adapter: card API v4 (current; v2/v1 return 404 since 2026), then the HTML page's Open Graph tags.
+ * v4 has the same shape as v2 (sizes[].price.product in kopecks). Image host is verified against the CDN.
+ * WB endpoints may return an empty body or block some IPs; all of that yields null.
  */
-export async function parseWb(url: string, fetcher: TextFetcher = fetchText): Promise<ParsedProduct | null> {
+export async function parseWb(url: string, fetcher: TextFetcher = fetchText, head: HeadFetcher = fetchHead): Promise<ParsedProduct | null> {
   const nm = extractNm(url);
   if (nm == null) return null;
   try {
-    for (const version of ["v2", "v1"] as const) {
-      const res = await fetcher(wbCardUrl(nm, version), { accept: "application/json,*/*;q=0.5", maxBytes: 512_000 });
+    for (const version of ["v4", "v2", "v1"] as const) {
+      const res = await fetcher(wbCardUrl(nm, version), { accept: "application/json,*/*;q=0.5", maxBytes: 512_000, tlsProfile: "browser" });
       if (!res || res.status !== 200) continue;
       const json = safeJson(res.body);
       if (!json) continue;
-      const mapped = version === "v2" ? mapWbV2(json, nm, url) : mapWbV1(json, nm, url);
-      if (mapped) return mapped;
+      const mapped = version === "v1" ? mapWbV1(json, nm, url) : mapWbV2(json, nm, url);
+      if (mapped) return { ...mapped, image: await resolveWbImage(nm, head) };
     }
     const og = await parseOg(wbCanonicalUrl(nm), fetcher);
     if (og) return { ...og, url, source: "wb", image: og.image ?? wbImageUrl(nm) };

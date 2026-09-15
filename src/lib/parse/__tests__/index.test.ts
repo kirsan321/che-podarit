@@ -17,7 +17,7 @@ describe("parseProductUrl", () => {
       return { status: 200, contentType: "application/json", url, body: JSON.stringify({ data: { products: [{ id: 149763240, name: "X", sizes: [{ price: { product: 100 } }] }] } }) };
     };
     const p = await parseProductUrl("https://www.wildberries.ru/catalog/149763240/detail.aspx?utm_source=x", f);
-    expect(seen[0]).toContain("card.wb.ru/cards/v2/detail");
+    expect(seen[0]).toContain("card.wb.ru/cards/v4/detail");
     expect(p).toMatchObject({ source: "wb", price: 1, url: "https://www.wildberries.ru/catalog/149763240/detail.aspx" });
   });
   it("routes everything else to Open Graph and never throws", async () => {
