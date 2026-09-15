@@ -19,18 +19,16 @@ export default async function ListPage() {
     const { data } = await supabase.from("wishlists").insert({ owner_id: user.id }).select("*").single();
     wishlist = data as Wishlist;
   }
-  const { data: items } = await supabase
-    .from("wish_items")
-    .select("*")
-    .eq("wishlist_id", wishlist.id)
-    .order("sort_order")
-    .order("created_at", { ascending: false });
+  const [{ data: items }, { data: share }] = await Promise.all([
+    supabase.from("wish_items").select("*").eq("wishlist_id", wishlist.id).order("sort_order").order("created_at", { ascending: false }),
+    supabase.from("share_links").select("token").eq("wishlist_id", wishlist.id).is("revoked_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+  ]);
 
   const name = (profile as Profile | null)?.display_name || user.email?.split("@")[0] || "Вы";
 
   return (
     <div className="app">
-      <ListScreen name={name} items={(items ?? []) as WishItem[]} />
+      <ListScreen name={name} items={(items ?? []) as WishItem[]} shareToken={share?.token ?? null} />
       <BottomNav active="list" />
     </div>
   );

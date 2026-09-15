@@ -75,3 +75,29 @@ export async function setReceived(id: string, received: boolean) {
   }).eq("id", id);
   revalidatePath("/list");
 }
+
+// ---------- sharing ----------
+export type ShareInfo = { token: string; createdAt: string };
+
+export async function ensureShareLink(): Promise<ShareInfo> {
+  const supabase = await createClient();
+  const wishlist_id = await ownedWishlistId();
+  const { data: existing } = await supabase
+    .from("share_links").select("token, created_at").eq("wishlist_id", wishlist_id).is("revoked_at", null)
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (existing) return { token: existing.token, createdAt: existing.created_at };
+  const { data, error } = await supabase.from("share_links").insert({ wishlist_id }).select("token, created_at").single();
+  if (error) throw error;
+  revalidatePath("/list");
+  return { token: data.token, createdAt: data.created_at };
+}
+
+export async function regenerateShareLink(): Promise<ShareInfo> {
+  const supabase = await createClient();
+  const wishlist_id = await ownedWishlistId();
+  await supabase.from("share_links").update({ revoked_at: new Date().toISOString() }).eq("wishlist_id", wishlist_id).is("revoked_at", null);
+  const { data, error } = await supabase.from("share_links").insert({ wishlist_id }).select("token, created_at").single();
+  if (error) throw error;
+  revalidatePath("/list");
+  return { token: data.token, createdAt: data.created_at };
+}
