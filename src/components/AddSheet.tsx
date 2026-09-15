@@ -8,13 +8,13 @@ const isHttpUrl = (s: string) => /^https?:\/\/\S+\.\S+/i.test(s.trim());
 
 type ParseStatus = "idle" | "loading" | "ok" | "fail";
 
-export function AddSheet({ initialUrl, onClose, onAdded }: { initialUrl?: string; onClose: () => void; onAdded: () => void }) {
+export function AddSheet({ initialUrl, initialTitle, onClose, onAdded }: { initialUrl?: string; initialTitle?: string; onClose: () => void; onAdded: () => void }) {
   const looksLikeUrl = !!initialUrl && isHttpUrl(initialUrl);
   const [kind, setKind] = useState<"exact" | "direction">("exact");
   const [state, action, pending] = useActionState<ItemState, FormData>(addItem, undefined);
 
   const [url, setUrl] = useState(looksLikeUrl ? initialUrl!.trim() : "");
-  const [title, setTitle] = useState(looksLikeUrl ? "" : initialUrl ?? "");
+  const [title, setTitle] = useState(initialTitle ?? (looksLikeUrl ? "" : initialUrl ?? ""));
   const [price, setPrice] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [status, setStatus] = useState<ParseStatus>("idle");
