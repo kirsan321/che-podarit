@@ -161,8 +161,10 @@ async function fetchTextBrowserTls(url: string, opts: FetchTextOptions): Promise
           res.on("error", () => resolve(null));
         },
       );
+      const hard = setTimeout(() => req.destroy(), timeoutMs);
       req.on("timeout", () => req.destroy());
       req.on("error", () => resolve(null));
+      req.on("close", () => { clearTimeout(hard); resolve(null); });
       req.end();
     });
     if (!result) return null;
