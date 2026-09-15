@@ -1,0 +1,22 @@
+{
+  "products": [
+    {
+      "id": 1167502010,
+      "brand": "ZKBOWBG",
+      "name": "Чехол для Kindle Paperwhite 12 7\" Черный, SA568B SA5",
+      "pics": 7,
+      "sizes": [
+        {
+          "name": "1",
+          "price": {
+            "basic": 105600,
+            "product": 103400,
+            "logistics": 0,
+            "return": 0,
+            "cashback": 0
+          }
+        }
+      ]
+    }
+  ]
+}

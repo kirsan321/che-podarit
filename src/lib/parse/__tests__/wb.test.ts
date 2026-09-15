@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import v1 from "../__fixtures__/wb-v1.json";
 import v2 from "../__fixtures__/wb-v2.json";
 import v2NoPrice from "../__fixtures__/wb-v2-no-price.json";
-import type { FetchTextResult, TextFetcher } from "../http";
-import { basketHost, extractNm, mapWbV1, mapWbV2, parseWb, wbImageUrl } from "../wb";
+import v4 from "../__fixtures__/wb-v4.json";
+import type { FetchTextResult, HeadFetcher, TextFetcher } from "../http";
+import { basketHost, extractNm, guessBasket, mapWbV1, mapWbV2, parseWb, resolveWbImage, wbImageUrl } from "../wb";
 
 const nm = 149763240;
 
@@ -34,14 +35,35 @@ describe("basketHost", () => {
       [2045, "basket-13"], [2046, "basket-14"], [2189, "basket-14"], [2190, "basket-15"], [2405, "basket-15"],
       [2406, "basket-16"], [2621, "basket-16"], [2622, "basket-17"], [2837, "basket-17"], [2838, "basket-18"],
       [3053, "basket-18"], [3054, "basket-19"], [3269, "basket-19"], [3270, "basket-20"], [3485, "basket-20"],
-      [3486, "basket-21"], [9999, "basket-21"],
+      [3486, "basket-21"], [11675, "basket-43"],
     ];
     for (const [vol, host] of cases) {
       expect(basketHost(vol * 1e5 + 12345), `vol ${vol}`).toBe(`${host}.wbbasket.ru`);
     }
   });
+  it("interpolates baskets beyond the table (anchor: vol 11675 -> basket 43)", () => {
+    expect(guessBasket(11675)).toBe(43);
+    expect(basketHost(1167502010)).toBe("basket-43.wbbasket.ru");
+  });
   it("builds the big image URL", () => {
     expect(wbImageUrl(nm)).toBe("https://basket-10.wbbasket.ru/vol1497/part149763/149763240/images/big/1.webp");
+    expect(wbImageUrl(nm, 12)).toBe("https://basket-12.wbbasket.ru/vol1497/part149763/149763240/images/big/1.webp");
+  });
+});
+
+describe("resolveWbImage", () => {
+  it("returns the guessed URL when the CDN answers 200", async () => {
+    const head: HeadFetcher = async () => 200;
+    await expect(resolveWbImage(nm, head)).resolves.toBe(wbImageUrl(nm));
+  });
+  it("probes neighbouring baskets when the guess is a 404", async () => {
+    const good = wbImageUrl(nm, 12);
+    const head: HeadFetcher = async (u) => (u === good ? 200 : 404);
+    await expect(resolveWbImage(nm, head)).resolves.toBe(good);
+  });
+  it("returns null when nothing answers", async () => {
+    const head: HeadFetcher = async () => null;
+    await expect(resolveWbImage(nm, head)).resolves.toBeNull();
   });
 });
 
@@ -90,22 +112,37 @@ function fakeFetcher(routes: Record<string, Partial<FetchTextResult> | null>): T
 
 describe("parseWb", () => {
   const url = "https://www.wildberries.ru/catalog/149763240/detail.aspx";
+  const headOk: HeadFetcher = async () => 200;
 
-  it("uses v2 when it answers", async () => {
-    const f = fakeFetcher({ "https://card.wb.ru/cards/v2/": { body: JSON.stringify(v2) } });
-    const p = await parseWb(url, f);
-    expect(p?.price).toBe(13499);
-    expect(p?.url).toBe(url);
+  it("uses v4 when it answers and verifies the image on the CDN", async () => {
+    const f = fakeFetcher({ "https://card.wb.ru/cards/v4/": { body: JSON.stringify(v4) } });
+    const p = await parseWb("https://www.wildberries.ru/catalog/1167502010/detail.aspx", f, headOk);
+    expect(p).toMatchObject({ price: 1034, source: "wb", confidence: "high" });
+    expect(p?.title).toContain("Kindle Paperwhite");
+    expect(p?.image).toBe("https://basket-43.wbbasket.ru/vol11675/part1167502/1167502010/images/big/1.webp");
     expect(f.calls).toHaveLength(1);
   });
-  it("falls back to v1 when v2 returns an empty body", async () => {
+  it("falls back to v2 when v4 is a 404", async () => {
+    const f = fakeFetcher({ "https://card.wb.ru/cards/v2/": { body: JSON.stringify(v2) } });
+    const p = await parseWb(url, f, headOk);
+    expect(p?.price).toBe(13499);
+    expect(p?.url).toBe(url);
+    expect(f.calls).toHaveLength(2);
+  });
+  it("sets image null when no basket answers", async () => {
+    const f = fakeFetcher({ "https://card.wb.ru/cards/v4/": { body: JSON.stringify(v4) } });
+    const p = await parseWb("https://www.wildberries.ru/catalog/1167502010/detail.aspx", f, async () => 404);
+    expect(p?.image).toBeNull();
+  });
+  it("falls back to v1 when v4 and v2 return an empty body", async () => {
     const f = fakeFetcher({
+      "https://card.wb.ru/cards/v4/": { body: "" },
       "https://card.wb.ru/cards/v2/": { body: "" },
       "https://card.wb.ru/cards/v1/": { body: JSON.stringify(v1) },
     });
-    const p = await parseWb(url, f);
+    const p = await parseWb(url, f, headOk);
     expect(p?.price).toBe(13499);
-    expect(f.calls).toHaveLength(2);
+    expect(f.calls).toHaveLength(3);
   });
   it("falls back to the HTML page's OG tags when both APIs are empty", async () => {
     const f = fakeFetcher({
@@ -115,19 +152,19 @@ describe("parseWb", () => {
         body: '<html><head><meta property="og:title" content="Kindle Paperwhite"><meta property="product:price:amount" content="13499"></head></html>',
       },
     });
-    const p = await parseWb(url, f);
+    const p = await parseWb(url, f, headOk);
     expect(p).toMatchObject({ title: "Kindle Paperwhite", price: 13499, source: "wb", image: wbImageUrl(nm) });
-    expect(f.calls).toHaveLength(3);
+    expect(f.calls).toHaveLength(4);
   });
   it("returns null, never throws, when everything fails", async () => {
     const f = fakeFetcher({});
-    await expect(parseWb(url, f)).resolves.toBeNull();
+    await expect(parseWb(url, f, headOk)).resolves.toBeNull();
     const throwing: TextFetcher = async () => { throw new Error("boom"); };
-    await expect(parseWb(url, throwing)).resolves.toBeNull();
+    await expect(parseWb(url, throwing, headOk)).resolves.toBeNull();
   });
   it("returns null for a WB URL without an article", async () => {
     const f = fakeFetcher({});
-    await expect(parseWb("https://www.wildberries.ru/brands/kindle", f)).resolves.toBeNull();
+    await expect(parseWb("https://www.wildberries.ru/brands/kindle", f, headOk)).resolves.toBeNull();
     expect(f.calls).toHaveLength(0);
   });
 });
