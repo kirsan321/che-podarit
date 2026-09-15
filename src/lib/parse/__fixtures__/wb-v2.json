@@ -1,0 +1,26 @@
+{
+  "state": 0,
+  "payloadVersion": 2,
+  "data": {
+    "products": [
+      {
+        "id": 149763240,
+        "root": 133045124,
+        "name": "Электронная книга Paperwhite 16 ГБ",
+        "brand": "Kindle",
+        "brandId": 12345,
+        "supplierId": 67890,
+        "rating": 5,
+        "sizes": [
+          {
+            "name": "",
+            "origName": "0",
+            "optionId": 1,
+            "stocks": [],
+            "price": { "basic": 1899000, "product": 1349900, "total": 1349900, "logistics": 0, "return": 0 }
+          }
+        ]
+      }
+    ]
+  }
+}
