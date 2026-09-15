@@ -1,0 +1,55 @@
+{
+  "products": [
+    {
+      "id": 851559523,
+      "brand": "New Balance",
+      "name": "Кроссовки 530 нью баланс женские белые синие",
+      "sizes": [
+        {
+          "price": {
+            "basic": 999900,
+            "product": 251700,
+            "logistics": 0,
+            "return": 0,
+            "cashback": 0
+          }
+        }
+      ],
+      "pics": 10
+    },
+    {
+      "id": 1370929339,
+      "brand": "",
+      "name": "Кроссовки New Balance 530",
+      "sizes": [
+        {
+          "price": {
+            "basic": 999900,
+            "product": 188700,
+            "logistics": 0,
+            "return": 0,
+            "cashback": 0
+          }
+        }
+      ],
+      "pics": 7
+    },
+    {
+      "id": 883576882,
+      "brand": "New Balance",
+      "name": "Кроссовки новый баланс 530 сетчатые",
+      "sizes": [
+        {
+          "price": {
+            "basic": 3500000,
+            "product": 535900,
+            "logistics": 0,
+            "return": 0,
+            "cashback": 0
+          }
+        }
+      ],
+      "pics": 12
+    }
+  ]
+}

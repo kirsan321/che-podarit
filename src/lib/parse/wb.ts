@@ -28,16 +28,25 @@ const BASKET_RANGES: Array<[number, number]> = [
   [2621, 16], [2837, 17], [3053, 18], [3269, 19], [3485, 20],
 ];
 
-// Beyond the table, baskets grow roughly linearly. Anchor observed 2026-09-15: vol 11675 -> basket 43.
-const LAST_TABLE_VOL = 3485;
-const LAST_TABLE_BASKET = 20;
-const VOLS_PER_BASKET = (11675 - LAST_TABLE_VOL) / (43 - LAST_TABLE_BASKET);
+// Beyond the table, baskets keep growing but not linearly. Anchors observed on the CDN 2026-09-15
+// (vol -> basket); between anchors we interpolate, after the last one we extrapolate with the last slope.
+// resolveWbImage verifies the guess against the CDN and probes neighbours, so this only needs to be close.
+const ANCHORS: Array<[number, number]> = [
+  [3485, 20], [5000, 27], [6500, 32], [8515, 38], [8835, 39], [9500, 40], [11697, 43], [13709, 46],
+];
 
 /** Best-guess basket number for a vol; verified against the CDN by resolveWbImage. */
 export function guessBasket(vol: number): number {
   const hit = BASKET_RANGES.find(([max]) => vol <= max);
   if (hit) return hit[1];
-  return LAST_TABLE_BASKET + Math.ceil((vol - LAST_TABLE_VOL) / VOLS_PER_BASKET);
+  for (let i = 1; i < ANCHORS.length; i++) {
+    const [v0, b0] = ANCHORS[i - 1];
+    const [v1, b1] = ANCHORS[i];
+    if (vol <= v1) return Math.min(b1, b0 + Math.ceil(((vol - v0) / (v1 - v0)) * (b1 - b0)));
+  }
+  const [v0, b0] = ANCHORS[ANCHORS.length - 2];
+  const [v1, b1] = ANCHORS[ANCHORS.length - 1];
+  return b1 + Math.ceil(((vol - v1) / (v1 - v0)) * (b1 - b0));
 }
 
 export function basketHost(nm: number, basket: number = guessBasket(Math.floor(nm / 1e5))): string {
@@ -58,7 +67,7 @@ export async function resolveWbImage(nm: number, head: HeadFetcher = fetchHead):
   const guess = guessBasket(Math.floor(nm / 1e5));
   const first = wbImageUrl(nm, guess);
   if ((await head(first)) === 200) return first;
-  const candidates = [-1, 1, -2, 2, -3, 3].map((d) => guess + d).filter((b) => b >= 1 && b <= 99);
+  const candidates = [-1, 1, -2, 2, -3, 3, -4, 4].map((d) => guess + d).filter((b) => b >= 1 && b <= 99);
   const results = await Promise.all(candidates.map(async (b) => ((await head(wbImageUrl(nm, b))) === 200 ? wbImageUrl(nm, b) : null)));
   return results.find((r) => r) ?? null;
 }
