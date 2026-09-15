@@ -154,3 +154,11 @@ a { color: inherit; }
 .card-link { display: block; text-decoration: none; color: inherit; }
 .pub-foot { text-align: center; color: var(--muted); font-size: 12.5px; padding: 28px 16px 24px; }
 .pub-foot a { color: var(--ink); font-weight: 600; text-decoration: none; }
+
+/* add sheet: link parser */
+.parse-hint { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 13px; color: var(--muted); }
+.parse-hint.ok { color: var(--ok); }
+.parse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: parse-pulse 1s ease-in-out infinite; }
+@keyframes parse-pulse { 0%, 100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
+.parse-preview { margin: 0 16px 10px; width: 88px; height: 88px; border-radius: 11px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); }
+.parse-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
