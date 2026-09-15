@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "чЁ подарить",
   description: "Список желаний, из которого дарят без дублей и гаданий",
   robots: { index: false, follow: false },
+  applicationName: "чЁ подарить",
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "чЁ подарить" },
+  icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {

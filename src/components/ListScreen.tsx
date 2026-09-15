@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { deleteItem, setVisible } from "@/app/list/actions";
 import { fmtPrice, type WishItem } from "@/lib/types";
 import { AddSheet } from "./AddSheet";
@@ -12,7 +13,16 @@ type Filter = "all" | "visible" | "hidden";
 export function ListScreen({ name, items, shareToken }: { name: string; items: WishItem[]; shareToken: string | null }) {
   const [shareOpen, setShareOpen] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
-  const [sheet, setSheet] = useState<{ open: boolean; url?: string }>({ open: false });
+  const router = useRouter();
+  const params = useSearchParams();
+  // Opened via the share target (/share -> /list?add=1&url=&title=): start with the sheet open and clean the URL.
+  const [sheet, setSheet] = useState<{ open: boolean; url?: string; title?: string }>(() =>
+    params.get("add") === "1" ? { open: true, url: params.get("url") ?? undefined, title: params.get("title") ?? undefined } : { open: false },
+  );
+  useEffect(() => {
+    if (params.get("add") === "1") router.replace("/list");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [pasteUrl, setPasteUrl] = useState("");
   const [toast, setToast] = useState<{ text: string; undo?: () => void } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -133,7 +143,7 @@ export function ListScreen({ name, items, shareToken }: { name: string; items: W
 
       {shareOpen && <ShareSheet name={name} initialToken={shareToken} onClose={() => setShareOpen(false)} onToast={(t) => showToast(t)} />}
 
-      {sheet.open && <AddSheet initialUrl={sheet.url} onClose={() => setSheet({ open: false })} onAdded={() => { setSheet({ open: false }); showToast("Добавлено"); }} />}
+      {sheet.open && <AddSheet initialUrl={sheet.url} initialTitle={sheet.title} onClose={() => setSheet({ open: false })} onAdded={() => { setSheet({ open: false }); showToast("Добавлено"); }} />}
 
       {openItem && (
         <>
