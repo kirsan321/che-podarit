@@ -4,11 +4,13 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { deleteItem, setVisible } from "@/app/list/actions";
 import { fmtPrice, type WishItem } from "@/lib/types";
 import { AddSheet } from "./AddSheet";
+import { ShareSheet } from "./ShareSheet";
 import { IconBox, IconEye, IconLink, IconPlus, IconShare } from "./icons";
 
 type Filter = "all" | "visible" | "hidden";
 
-export function ListScreen({ name, items }: { name: string; items: WishItem[] }) {
+export function ListScreen({ name, items, shareToken }: { name: string; items: WishItem[]; shareToken: string | null }) {
+  const [shareOpen, setShareOpen] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
   const [sheet, setSheet] = useState<{ open: boolean; url?: string }>({ open: false });
   const [pasteUrl, setPasteUrl] = useState("");
@@ -56,7 +58,7 @@ export function ListScreen({ name, items }: { name: string; items: WishItem[] })
           <div className="ava">{initial}</div>
           <div><b>{name}</b><small>{active.length ? `${active.length} ${plural(active.length, "желание", "желания", "желаний")}` : "пока пусто"}</small></div>
         </div>
-        <button className="icon-btn share press" aria-label="Поделиться списком" onClick={() => showToast("Ссылка появится на следующем шаге")}><IconShare /></button>
+        <button className="icon-btn share press" aria-label="Поделиться списком" onClick={() => setShareOpen(true)}><IconShare /></button>
       </div>
 
       <form className="paste" onSubmit={(e) => { e.preventDefault(); openAdd(pasteUrl.trim() || undefined); }}>
@@ -128,6 +130,8 @@ export function ListScreen({ name, items }: { name: string; items: WishItem[] })
           ))}
         </>
       )}
+
+      {shareOpen && <ShareSheet name={name} initialToken={shareToken} onClose={() => setShareOpen(false)} onToast={(t) => showToast(t)} />}
 
       {sheet.open && <AddSheet initialUrl={sheet.url} onClose={() => setSheet({ open: false })} onAdded={() => { setSheet({ open: false }); showToast("Добавлено"); }} />}
 
