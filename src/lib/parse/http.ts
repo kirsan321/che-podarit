@@ -69,8 +69,11 @@ function decode(bytes: Uint8Array, charset: string): string {
  * Fetches a text body with a browser-like UA, hard timeout, body cap and
  * SSRF-checked manual redirects. Never throws: returns null on any failure.
  */
+/** Outbound proxy for marketplace requests (e.g. a Russian residential proxy). Set PARSER_PROXY_URL=http://user:pass@host:port */
+const PROXY_URL = process.env.PARSER_PROXY_URL?.trim() || null;
+
 export const fetchText: TextFetcher = async (url, opts = {}) => {
-  if (opts.tlsProfile === "browser") return fetchTextBrowserTls(url, opts);
+  if (opts.tlsProfile === "browser" || PROXY_URL) return fetchTextBrowserTls(url, opts);
   const timeoutMs = opts.timeoutMs ?? 4000;
   const maxBytes = opts.maxBytes ?? 1_000_000;
   const accept = opts.accept ?? "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8";
@@ -140,6 +143,7 @@ const BROWSER_CIPHERS = [
 
 async function fetchTextBrowserTls(url: string, opts: FetchTextOptions): Promise<FetchTextResult | null> {
   const { request } = await import("node:https");
+  const agent = PROXY_URL ? new (await import("https-proxy-agent")).HttpsProxyAgent(PROXY_URL, { ciphers: BROWSER_CIPHERS, ecdhCurve: "X25519:P-256:P-384" }) : undefined;
   const timeoutMs = opts.timeoutMs ?? 4000;
   const maxBytes = opts.maxBytes ?? 1_000_000;
   const accept = opts.accept ?? "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8";
@@ -152,7 +156,7 @@ async function fetchTextBrowserTls(url: string, opts: FetchTextOptions): Promise
         {
           hostname: u.hostname, path: u.pathname + u.search, method: "GET",
           headers: { "User-Agent": UA, Accept: accept, "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8" },
-          ciphers: BROWSER_CIPHERS, ecdhCurve: "X25519:P-256:P-384", timeout: timeoutMs,
+          ciphers: BROWSER_CIPHERS, ecdhCurve: "X25519:P-256:P-384", timeout: timeoutMs, agent,
         },
         (res) => {
           const chunks: Uint8Array[] = []; let total = 0;

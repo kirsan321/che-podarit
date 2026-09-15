@@ -84,7 +84,7 @@ export default async function PublicListPage({ params }: PageProps<"/s/[token]">
       ) : rows.length > 0 ? (
         <div className="pub-cta"><b>Всё уже дарят</b>Каждое желание из списка кто-то забронировал. Загляните позже: список может пополниться.</div>
       ) : null}
-      <div className="pub-foot"><Link href="/login">чЁ подарить</Link> · свой список за минуту · <Link href="/g">мои подарки</Link></div>
+      <div className="pub-foot"><Link href="/login">чЁ подарить</Link> · свой список за минуту · <Link href="/give">мои подарки</Link></div>
     </div>
   );
 }

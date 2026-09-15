@@ -51,7 +51,7 @@ export function FinalScreen({ token, items, source, busyId, onConfirm, onRelease
       <div className="fnote">Нажмите «Подарил» после вручения: бронь останется навсегда. Иначе она снимется сама через две недели после даты события.</div>
       <div style={{ height: 12 }} />
       <Link href={`/s/${token}`} className="btn ghost press" style={{ display: "grid", placeItems: "center", textDecoration: "none" }}>К списку желаний</Link>
-      <Link href="/g" className="hint" style={{ display: "block", textAlign: "center", paddingTop: 8, textDecoration: "none" }}>Все мои подарки</Link>
+      <Link href="/give" className="hint" style={{ display: "block", textAlign: "center", paddingTop: 8, textDecoration: "none" }}>Все мои подарки</Link>
     </>
   );
 }

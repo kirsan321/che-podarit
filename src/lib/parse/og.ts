@@ -183,9 +183,9 @@ function looksLikeHtml(contentType: string, body: string): boolean {
 }
 
 /** Fetches any page and extracts a product from Open Graph / JSON-LD. Never throws. */
-export async function parseOg(url: string, fetcher: TextFetcher = fetchText): Promise<ParsedProduct | null> {
+export async function parseOg(url: string, fetcher: TextFetcher = fetchText, fetchOpts: { timeoutMs?: number } = {}): Promise<ParsedProduct | null> {
   try {
-    const res = await fetcher(url);
+    const res = await fetcher(url, fetchOpts);
     if (!res || res.status < 200 || res.status >= 300 || !res.body) return null;
     if (!looksLikeHtml(res.contentType, res.body)) return null;
     return ogToProduct(extractOg(res.body, res.url), url);
