@@ -188,21 +188,37 @@ function concat(chunks: Uint8Array[], size: number): Uint8Array {
   return out;
 }
 
-/** Follows exactly one redirect hop and returns the Location (absolute), or null. Used for marketplace short links. */
+/** Follows exactly one redirect hop and returns the Location (absolute), or null. Used for marketplace short links.
+ *  Uses the browser-like TLS profile: ozon.ru answers Node's default fingerprint with an error from some networks. */
 export type RedirectResolver = (url: string) => Promise<string | null>;
 export const resolveRedirect: RedirectResolver = async (url) => {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 4000);
   try {
-    const res = await fetch(url, { method: "GET", redirect: "manual", signal: ctrl.signal, headers: { "User-Agent": UA, "Accept-Language": "ru-RU,ru;q=0.9" } });
-    res.body?.cancel().catch(() => {});
-    if (res.status < 300 || res.status >= 400) return null;
-    const loc = res.headers.get("location");
-    if (!loc) return null;
-    try { return new URL(loc, url).toString(); } catch { return null; }
+    const u = new URL(url);
+    if (u.protocol !== "https:") return null;
+    const { request } = await import("node:https");
+    const agent = PROXY_URL ? new (await import("https-proxy-agent")).HttpsProxyAgent(PROXY_URL, { ciphers: BROWSER_CIPHERS, ecdhCurve: "X25519:P-256:P-384" }) : undefined;
+    return await new Promise<string | null>((resolve) => {
+      const req = request(
+        {
+          hostname: u.hostname, path: u.pathname + u.search, method: "GET",
+          headers: { "User-Agent": UA, Accept: "text/html,*/*;q=0.8", "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8" },
+          ciphers: BROWSER_CIPHERS, ecdhCurve: "X25519:P-256:P-384", timeout: 4000, agent,
+        },
+        (res) => {
+          const status = res.statusCode ?? 0;
+          const loc = res.headers.location ?? null;
+          res.resume();
+          if (status < 300 || status >= 400 || !loc) return resolve(null);
+          try { resolve(new URL(loc, url).toString()); } catch { resolve(null); }
+        },
+      );
+      const hard = setTimeout(() => req.destroy(), 4500);
+      req.on("timeout", () => req.destroy());
+      req.on("error", () => resolve(null));
+      req.on("close", () => { clearTimeout(hard); resolve(null); });
+      req.end();
+    });
   } catch {
     return null;
-  } finally {
-    clearTimeout(t);
   }
 };
