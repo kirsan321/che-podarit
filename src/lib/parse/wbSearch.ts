@@ -75,3 +75,14 @@ export async function searchWb(query: string, fetcher: TextFetcher = fetchText, 
     return [];
   }
 }
+
+/** Runs several queries (e.g. Cyrillic and raw transliteration) and merges unique candidates in order. */
+export async function searchWbMulti(queries: string[], fetcher: TextFetcher = fetchText, head: HeadFetcher = fetchHead, max = 3): Promise<WbCandidate[]> {
+  const uniq = Array.from(new Set(queries.map((q) => q.trim()).filter((q) => q.length >= 3)));
+  if (!uniq.length) return [];
+  const results = await Promise.all(uniq.map((q) => searchWb(q, fetcher, head, max)));
+  const seen = new Set<number>();
+  const out: WbCandidate[] = [];
+  for (const list of results) for (const c of list) if (!seen.has(c.id)) { seen.add(c.id); out.push(c); if (out.length >= max) return out; }
+  return out;
+}

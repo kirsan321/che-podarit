@@ -188,8 +188,16 @@ export async function parseOg(url: string, fetcher: TextFetcher = fetchText, fet
     const res = await fetcher(url, fetchOpts);
     if (!res || res.status < 200 || res.status >= 300 || !res.body) return null;
     if (!looksLikeHtml(res.contentType, res.body)) return null;
+    if (isAntiBotPage(res.body, res.url)) return null;
     return ogToProduct(extractOg(res.body, res.url), url);
   } catch {
     return null;
   }
+}
+
+/** Captcha / anti-bot interstitials carry og tags of the site itself; never treat them as a product. */
+export function isAntiBotPage(html: string, finalUrl: string): boolean {
+  if (/__rr=\d/.test(finalUrl)) return true;
+  const head = html.slice(0, 60_000);
+  return /smartcaptcha|showcaptcha|captcha-container|class="captcha|id="captcha|Подтвердите, что вы не робот|Доступ ограничен|antibot|cf-challenge|just a moment/i.test(head);
 }
