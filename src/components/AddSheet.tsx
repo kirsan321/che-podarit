@@ -8,18 +8,25 @@ import type { WbCandidate } from "@/lib/parse/wbSearch";
 const isHttpUrl = (s: string) => /^https?:\/\/\S+\.\S+/i.test(s.trim());
 
 type ParseStatus = "idle" | "loading" | "ok" | "fail" | "candidates" | "partial";
+const PHOTO_HINTS: Record<string, string> = {
+  candidates: "Распознали по фото. Это оно? Возьмём фото и цену с Wildberries",
+  partial: "Распознали по фото, проверьте название и добавьте цену",
+  fail: "Не удалось распознать фото, заполните вручную",
+};
 
-export function AddSheet({ initialUrl, initialTitle, onClose, onAdded }: { initialUrl?: string; initialTitle?: string; onClose: () => void; onAdded: () => void }) {
+export interface AddSheetPrefill { url?: string; title?: string; price?: number | null; candidates?: WbCandidate[]; hint?: "photo" | "photo-fail" }
+
+export function AddSheet({ initialUrl, initialTitle, prefill, onClose, onAdded }: { initialUrl?: string; initialTitle?: string; prefill?: AddSheetPrefill; onClose: () => void; onAdded: () => void }) {
   const looksLikeUrl = !!initialUrl && isHttpUrl(initialUrl);
   const [kind, setKind] = useState<"exact" | "direction">("exact");
   const [state, action, pending] = useActionState<ItemState, FormData>(addItem, undefined);
 
   const [url, setUrl] = useState(looksLikeUrl ? initialUrl!.trim() : "");
   const [title, setTitle] = useState(initialTitle ?? (looksLikeUrl ? "" : initialUrl ?? ""));
-  const [price, setPrice] = useState("");
+  const [price, setPrice] = useState(prefill?.price != null ? String(Math.round(prefill.price)) : "");
   const [imageUrl, setImageUrl] = useState("");
-  const [status, setStatus] = useState<ParseStatus>("idle");
-  const [candidates, setCandidates] = useState<WbCandidate[]>([]);
+  const [status, setStatus] = useState<ParseStatus>(prefill?.hint === "photo" ? (prefill.candidates?.length ? "candidates" : "partial") : prefill?.hint === "photo-fail" ? "fail" : "idle");
+  const [candidates, setCandidates] = useState<WbCandidate[]>(prefill?.candidates ?? []);
   const [pickedId, setPickedId] = useState<number | null>(null);
   // Last values we filled in automatically; only these get overwritten by a new parse.
   const auto = useRef<{ title: string; price: string }>({ title: "", price: "" });
@@ -106,6 +113,7 @@ export function AddSheet({ initialUrl, initialTitle, onClose, onAdded }: { initi
               <img src={imageUrl} alt="" onError={() => setImageUrl("")} />
             </div>
           )}
+          {prefill?.hint && status !== "loading" && status !== "ok" && PHOTO_HINTS[status] && <div className="parse-hint" style={{ margin: "0 16px 10px" }}>{PHOTO_HINTS[status]}</div>}
           <div className="field">
             <label htmlFor="title">{kind === "exact" ? "Что именно" : "Какое направление"}</label>
             <input id="title" name="title" required autoFocus value={title} onChange={(e) => { setTitle(e.target.value); titleRef.current = e.target.value; }} placeholder={kind === "exact" ? "Kindle Paperwhite 16 ГБ, чёрный" : "Что-то для домашнего кофе"} />
