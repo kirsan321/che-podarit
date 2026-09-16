@@ -27,6 +27,8 @@ export function AddSheet({ initialUrl, initialTitle, prefill, onClose, onAdded }
   const [imageUrl, setImageUrl] = useState("");
   const [status, setStatus] = useState<ParseStatus>(prefill?.hint === "photo" ? (prefill.candidates?.length ? "candidates" : "partial") : prefill?.hint === "photo-fail" ? "fail" : "idle");
   const [candidates, setCandidates] = useState<WbCandidate[]>(prefill?.candidates ?? []);
+  // True while the title is a machine guess (URL slug or photo); picking a candidate then replaces it.
+  const titleIsGuess = useRef(!!prefill?.hint);
   const [pickedId, setPickedId] = useState<number | null>(null);
   // Last values we filled in automatically; only these get overwritten by a new parse.
   const auto = useRef<{ title: string; price: string }>({ title: "", price: "" });
@@ -72,6 +74,7 @@ export function AddSheet({ initialUrl, initialTitle, prefill, onClose, onAdded }
       if (!product) { setStatus(found.length ? "candidates" : "fail"); setImageUrl(""); return; }
       setTitle((cur) => (cur.trim() === "" || cur === auto.current.title ? product!.title : cur));
       auto.current.title = product.title;
+      titleIsGuess.current = product.confidence === "low";
       const p = product.price != null ? String(Math.round(product.price)) : "";
       if (p) {
         setPrice((cur) => (cur.trim() === "" || cur === auto.current.price ? p : cur));
@@ -91,7 +94,7 @@ export function AddSheet({ initialUrl, initialTitle, prefill, onClose, onAdded }
       setPrice((cur) => (cur.trim() === "" || cur === auto.current.price ? p : cur));
       auto.current.price = p;
     }
-    if (title.trim() === "") { setTitle(c.title); titleRef.current = c.title; auto.current.title = c.title; }
+    if (title.trim() === "" || titleIsGuess.current || title === auto.current.title) { setTitle(c.title); titleRef.current = c.title; auto.current.title = c.title; }
     setStatus("ok");
   }
 
