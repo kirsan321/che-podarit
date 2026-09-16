@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.vercel
+.env*
+!.env.example
+docs
+mockups
+supabase/.temp
+*.md
