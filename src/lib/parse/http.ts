@@ -187,3 +187,22 @@ function concat(chunks: Uint8Array[], size: number): Uint8Array {
   for (const c of chunks) { const n = Math.min(c.length, size - o); out.set(c.subarray(0, n), o); o += n; if (o >= size) break; }
   return out;
 }
+
+/** Follows exactly one redirect hop and returns the Location (absolute), or null. Used for marketplace short links. */
+export type RedirectResolver = (url: string) => Promise<string | null>;
+export const resolveRedirect: RedirectResolver = async (url) => {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 4000);
+  try {
+    const res = await fetch(url, { method: "GET", redirect: "manual", signal: ctrl.signal, headers: { "User-Agent": UA, "Accept-Language": "ru-RU,ru;q=0.9" } });
+    res.body?.cancel().catch(() => {});
+    if (res.status < 300 || res.status >= 400) return null;
+    const loc = res.headers.get("location");
+    if (!loc) return null;
+    try { return new URL(loc, url).toString(); } catch { return null; }
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+};

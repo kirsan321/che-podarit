@@ -7,7 +7,7 @@ import type { WbCandidate } from "@/lib/parse/wbSearch";
 
 const isHttpUrl = (s: string) => /^https?:\/\/\S+\.\S+/i.test(s.trim());
 
-type ParseStatus = "idle" | "loading" | "ok" | "fail" | "candidates";
+type ParseStatus = "idle" | "loading" | "ok" | "fail" | "candidates" | "partial";
 
 export function AddSheet({ initialUrl, initialTitle, onClose, onAdded }: { initialUrl?: string; initialTitle?: string; onClose: () => void; onAdded: () => void }) {
   const looksLikeUrl = !!initialUrl && isHttpUrl(initialUrl);
@@ -71,7 +71,7 @@ export function AddSheet({ initialUrl, initialTitle, onClose, onAdded }: { initi
         auto.current.price = p;
       }
       setImageUrl(product.image ?? "");
-      setStatus("ok");
+      setStatus(product.confidence === "low" || product.price == null ? (found.length ? "candidates" : "partial") : "ok");
     }, delay);
     return () => { clearTimeout(timer); ac.abort(); };
   }, [url, kind, looksLikeUrl]);
@@ -118,7 +118,8 @@ export function AddSheet({ initialUrl, initialTitle, onClose, onAdded }: { initi
                 {status === "loading" && <div className="parse-hint loading"><span className="parse-dot" />Ищу товар…</div>}
                 {status === "ok" && <div className="parse-hint ok">Нашли товар, проверьте название и цену</div>}
                 {status === "fail" && <div className="parse-hint">Не удалось прочитать страницу, заполните вручную</div>}
-                {status === "candidates" && <div className="parse-hint">Страница не читается, но нашли похожее на Wildberries</div>}
+                {status === "candidates" && <div className="parse-hint">Магазин не отдаёт страницу, но нашли похожее на Wildberries</div>}
+                {status === "partial" && <div className="parse-hint">Название взяли из ссылки, цену и фото добавьте сами</div>}
               </div>
               {candidates.length > 0 && (
                 <div className="field">

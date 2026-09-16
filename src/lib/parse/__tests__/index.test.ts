@@ -24,6 +24,8 @@ describe("parseProductUrl", () => {
     const f: TextFetcher = async (url) => ({ status: 200, contentType: "text/html", url, body: '<meta property="og:title" content="Thing">' });
     expect(await parseProductUrl("https://www.ozon.ru/product/thing-1", f)).toMatchObject({ source: "ozon", title: "Thing" });
     const throwing: TextFetcher = async () => { throw new Error("boom"); };
-    await expect(parseProductUrl("https://www.ozon.ru/product/thing-1", throwing)).resolves.toBeNull();
+    await expect(parseProductUrl("https://example.com/thing-1", throwing)).resolves.toBeNull();
+    // Anti-bot marketplaces still yield a low-confidence product from the slug.
+    await expect(parseProductUrl("https://www.ozon.ru/product/thing-1", throwing)).resolves.toMatchObject({ source: "ozon", confidence: "low" });
   });
 });
