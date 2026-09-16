@@ -4,7 +4,7 @@
  */
 const MULTI: Array<[string, string]> = [
   ["shch", "щ"], ["sch", "щ"], ["yo", "ё"], ["zh", "ж"], ["kh", "х"], ["ts", "ц"], ["ch", "ч"], ["sh", "ш"],
-  ["yu", "ю"], ["ya", "я"], ["ye", "е"], ["yy", "ый"], ["iy", "ий"], ["ij", "ий"], ["oy", "ой"], ["ey", "ей"], ["ay", "ай"], ["uy", "уй"], ["eh", "э"],
+  ["yu", "ю"], ["ya", "я"], ["ye", "е"], ["yy", "ый"], ["iy", "ий"], ["ij", "ий"], ["eh", "э"],
 ];
 const SINGLE: Record<string, string> = {
   a: "а", b: "б", v: "в", g: "г", d: "д", e: "е", z: "з", i: "и", j: "й", k: "к", l: "л", m: "м", n: "н",
@@ -24,7 +24,8 @@ export function detranslitWord(word: string): string {
     out += SINGLE[ch] ?? ch;
     i += 1;
   }
-  return out;
+  // "y" after a vowel is "й", not "ы": alisoy -> алисой, sayt -> сайт
+  return out.replace(/([аеиоуыэюяё])ы/g, "$1й");
 }
 
 /**
